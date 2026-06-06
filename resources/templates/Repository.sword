@@ -1,0 +1,11 @@
+namespace {{ $namespace }};
+
+use {{ $entityNamespace }}\{{ $entityClass }};
+use Switon\Orm\Repository;
+
+/**
+* @extends Repository<{{ $entityClass }}>
+*/
+class {{ $repositoryClass }} extends Repository
+{
+}

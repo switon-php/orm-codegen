@@ -1,0 +1,73 @@
+{
+    "name": "switon/orm-codegen",
+    "description": "Entity and repository code generation from database tables for Switon Framework",
+    "type": "library",
+    "keywords": [
+        "switon",
+        "orm",
+        "codegen",
+        "scaffold"
+    ],
+    "homepage": "https://github.com/switon-php/orm-codegen",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "switon",
+            "email": "admin@switon.dev"
+        }
+    ],
+    "support": {
+        "source": "https://github.com/switon-php/orm-codegen",
+        "issues": "https://github.com/switon-php/orm-codegen/issues",
+        "docs": "https://docs.switon.dev/latest/orm-codegen"
+    },
+    "require": {
+        "php": ">=8.3",
+        "switon/command": "^1.0",
+        "switon/core": "^1.0",
+        "switon/console": "^1.0",
+        "switon/db": "^1.0",
+        "switon/di": "^1.0",
+        "switon/orm": "^1.0"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.0",
+        "switon/principal": "^1.0",
+        "switon/testing": "^1.0",
+        "phpstan/extension-installer": "^1.4"
+    },
+    "config": {
+        "allow-plugins": {
+            "switon/composer-extra": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Switon\\OrmCodegen\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Switon\\OrmCodegen\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "phpstan": "@php vendor/bin/phpstan analyse",
+        "test:unit": "@php vendor/bin/phpunit --configuration tests/phpunit.xml.dist --testsuite=unit --display-deprecations --display-phpunit-notices",
+        "test": "@php vendor/bin/phpunit --configuration tests/phpunit.xml.dist --testsuite=all --display-deprecations --display-phpunit-notices"
+    },
+    "extra": {
+        "switon": {
+            "providers": [
+                "Switon\\OrmCodegen\\ServiceProvider"
+            ],
+            "commands": [
+                "Switon\\OrmCodegen\\Command\\EntityCommand"
+            ]
+        },
+        "branch-alias": {
+            "dev-dev": "1.0.x-dev"
+        }
+    }
+}

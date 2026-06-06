@@ -1,0 +1,33 @@
+namespace {{ $namespace }};
+
+@if (!empty($uses))
+    @foreach ($uses as $use)
+        use {{ $use }};
+    @endforeach
+
+@endif
+@if (!empty($attributes))
+    @foreach ($attributes as $attribute)
+        {{ $attribute }}
+    @endforeach
+
+@endif
+@if (!empty($tableAttribute))
+    {!! $tableAttribute !!}
+@endif
+class {{ $className }} extends {{ $baseClass }}
+{
+@if (!empty($constants))
+    {{ $constants }}
+
+@endif
+@foreach ($fields as $field)
+    @if (!empty($field['isPrimaryKey']))
+        #[Id]
+    @endif
+    @if (!empty($field['maxLength']))
+        #[MaxLength({{ $field['maxLength'] }})]
+    @endif
+    public {{ $field['phpType'] }} ${{ $field['name'] }};
+@endforeach
+}
