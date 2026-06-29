@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Switon\OrmCodegen;
 
-use ReflectionAttribute;
 use ReflectionClass;
 use Switon\Core\Attribute\Autowired;
+use Switon\Core\Attributes;
 use Switon\Core\ClassScannerInterface;
 use Switon\Orm\Attribute\Connection;
 use Switon\Orm\Attribute\Table;
@@ -72,9 +72,8 @@ class EntityScanner implements EntityScannerInterface
 
         $rClass = new ReflectionClass($className);
 
-        /** @var Table|null $tableAttribute */
         // Extract table name from #[Table] attribute or infer via NamingStrategy
-        $tableAttribute = $this->getClassAttribute($rClass, Table::class);
+        $tableAttribute = Attributes::first($rClass, Table::class);
         if ($tableAttribute !== null) {
             $table = $tableAttribute->name;
         } else {
@@ -83,9 +82,8 @@ class EntityScanner implements EntityScannerInterface
             $table = $namingStrategy->classToTableName($rClass->getShortName());
         }
 
-        /** @var Connection|null $connectionAttribute */
         // Extract connection name from #[Connection] attribute (default: 'default')
-        $connectionAttribute = $this->getClassAttribute($rClass, Connection::class);
+        $connectionAttribute = Attributes::first($rClass, Connection::class);
         $connection = ($connectionAttribute !== null) ? $connectionAttribute->name : 'default';
 
         // Build mapping: connection => table => entity class
@@ -93,25 +91,6 @@ class EntityScanner implements EntityScannerInterface
             $mapping[$connection] = [];
         }
         $mapping[$connection][$table] = $className;
-    }
-
-    /**
-     * Returns one class-level attribute instance from the reflected entity class when present.
-     *
-     * @template T of object
-     *
-     * @param ReflectionClass<Entity> $rClass Reflection class
-     * @param class-string<T> $attributeClass
-     *
-     * @return T|null
-     */
-    protected function getClassAttribute(ReflectionClass $rClass, string $attributeClass): ?object
-    {
-        $attributes = $rClass->getAttributes($attributeClass, ReflectionAttribute::IS_INSTANCEOF);
-        if (($attribute = $attributes[0] ?? null) !== null) {
-            return $attribute->newInstance();
-        }
-        return null;
     }
 
 }
