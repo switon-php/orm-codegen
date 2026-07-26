@@ -11,7 +11,7 @@ use Switon\OrmCodegen\ServiceProvider;
 use Switon\Testing\Container;
 use Switon\Testing\PackagePathAssert;
 
-final class ServiceProviderTest extends TestCase
+class ServiceProviderTest extends TestCase
 {
     public function testRegisterIsNoop(): void
     {

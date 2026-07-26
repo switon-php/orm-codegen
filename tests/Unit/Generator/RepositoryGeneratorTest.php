@@ -11,6 +11,7 @@ use Switon\Core\PathAliasInterface;
 use Switon\OrmCodegen\Generator\RepositoryGenerator;
 use Switon\OrmCodegen\Generator\TemplateCompilerInterface;
 use Switon\OrmCodegen\Tests\TestCase;
+use RuntimeException;
 
 #[AllowMockObjectsWithoutExpectations]
 class RepositoryGeneratorTest extends TestCase
@@ -30,7 +31,7 @@ class RepositoryGeneratorTest extends TestCase
         $this->mockCompiler = $this->createMock(TemplateCompilerInterface::class);
 
         $this->container->set(FilesystemInterface::class, $this->mockFilesystem);
-        $this->container->replace(PathAliasInterface::class, $this->mockPathAlias);
+        $this->container->set(PathAliasInterface::class, $this->mockPathAlias);
         $this->container->set(TemplateCompilerInterface::class, $this->mockCompiler);
 
         $this->generator = new RepositoryGenerator();
@@ -160,8 +161,8 @@ class RepositoryGeneratorTest extends TestCase
             ->willReturn($configPath);
 
         $this->mockFilesystem->method('exists')
-            ->willReturnCallback(static function (string $path) use ($configPath, $customTemplatePath): bool {
-                return $path === $configPath || $path === $customTemplatePath;
+            ->willReturnCallback(static function (string $path) use ($customTemplatePath): bool {
+                return $path === '@app/config/generator.php' || $path === $customTemplatePath;
             });
 
         $this->mockFilesystem->expects($this->once())
@@ -179,10 +180,6 @@ class RepositoryGeneratorTest extends TestCase
 
     public function testGenerateUsesAppTemplateWhenNoConfiguredTemplate(): void
     {
-        $this->mockPathAlias->method('resolve')
-            ->with('@app/config/generator.php')
-            ->willReturn('/tmp/non-existing-generator-config.php');
-
         $this->mockFilesystem->method('exists')
             ->willReturnCallback(static function (string $path): bool {
                 return $path === '@app/templates/generator/Repository.sword';
@@ -203,10 +200,6 @@ class RepositoryGeneratorTest extends TestCase
 
     public function testGenerateFallsBackToResourceAliasTemplatePath(): void
     {
-        $this->mockPathAlias->method('resolve')
-            ->with('@app/config/generator.php')
-            ->willReturn('/tmp/non-existing-generator-config.php');
-
         $vendorTemplate = '@switon.orm-codegen.resources/templates/Repository.sword';
         $this->mockFilesystem->method('exists')
             ->willReturnCallback(static function (string $path) use ($vendorTemplate): bool {
@@ -220,6 +213,23 @@ class RepositoryGeneratorTest extends TestCase
 
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo "namespace {$namespace};"; ?>');
+
+        $code = $this->generator->generate('App\\Repository', 'UserRepository', 'App\\Entity', 'User');
+
+        $this->assertStringContainsString('namespace App\\Repository;', $code);
+    }
+
+    public function testGenerateFallsBackWhenAppConfigLookupFails(): void
+    {
+        $this->mockFilesystem->method('exists')->willReturnCallback(static function (string $path): bool {
+            if ($path === '@app/config/generator.php') {
+                throw new RuntimeException('alias missing');
+            }
+
+            return false;
+        });
+        $this->mockFilesystem->method('read')->willReturn('template content');
+        $this->mockCompiler->method('compileString')->willReturn('<?php echo "namespace {$namespace};"; ?>');
 
         $code = $this->generator->generate('App\\Repository', 'UserRepository', 'App\\Entity', 'User');
 

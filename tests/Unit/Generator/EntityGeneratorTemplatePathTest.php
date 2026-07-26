@@ -13,7 +13,7 @@ use Switon\Db\ClientInterface;
 use Switon\Di\NamedLookupInterface;
 use Switon\OrmCodegen\Generator\EntityGenerator;
 use Switon\OrmCodegen\Generator\TemplateCompilerInterface;
-use ReflectionClass;
+use Switon\OrmCodegen\Tests\Fixtures\EntityGeneratorProbe;
 
 #[AllowMockObjectsWithoutExpectations]
 class EntityGeneratorTemplatePathTest extends TestCase
@@ -33,8 +33,8 @@ class EntityGeneratorTemplatePathTest extends TestCase
 
     public function testGeneratePrefersConfiguredNonAliasTemplatePath(): void
     {
-        $generator = new EntityGenerator();
-        [$filesystem, $pathAlias, $namedLookup, $compiler, $dbClient] = $this->prepareDependencies($generator);
+        $generator = new EntityGeneratorProbe();
+        [$filesystem, $namedLookup, $compiler, $dbClient, $pathAlias] = $this->prepareDependencies($generator);
 
         $configPath = sys_get_temp_dir() . '/orm-entity-generator-config-' . uniqid('', true) . '.php';
         $customTemplatePath = sys_get_temp_dir() . '/orm-entity-generator-template-' . uniqid('', true) . '.sword';
@@ -52,11 +52,14 @@ class EntityGeneratorTemplatePathTest extends TestCase
             ->willReturn($configPath);
 
         $filesystem->method('exists')
-            ->willReturnCallback(static function (string $path) use ($configPath, $customTemplatePath): bool {
-                return $path === $configPath || $path === $customTemplatePath;
+            ->willReturnCallback(static function (string $path) use ($customTemplatePath): bool {
+                return $path === '@app/config/generator.php' || $path === $customTemplatePath;
             });
         $filesystem->method('glob')->willReturn([]);
-        $filesystem->expects($this->never())->method('read');
+        $filesystem->expects($this->once())
+            ->method('read')
+            ->with($customTemplatePath)
+            ->willReturn('template-content');
 
         $compiler->expects($this->once())
             ->method('compileString')
@@ -74,12 +77,8 @@ class EntityGeneratorTemplatePathTest extends TestCase
 
     public function testGenerateUsesAppAliasTemplateWhenConfiguredTemplateMissing(): void
     {
-        $generator = new EntityGenerator();
-        [$filesystem, $pathAlias, $namedLookup, $compiler, $dbClient] = $this->prepareDependencies($generator);
-
-        $pathAlias->method('resolve')
-            ->with('@app/config/generator.php')
-            ->willReturn('/tmp/non-existing-generator-config.php');
+        $generator = new EntityGeneratorProbe();
+        [$filesystem, $namedLookup, $compiler, $dbClient] = $this->prepareDependencies($generator);
 
         $filesystem->method('exists')
             ->willReturnCallback(static function (string $path): bool {
@@ -107,12 +106,8 @@ class EntityGeneratorTemplatePathTest extends TestCase
 
     public function testGenerateFallsBackToResourceAliasTemplatePath(): void
     {
-        $generator = new EntityGenerator();
-        [$filesystem, $pathAlias, $namedLookup, $compiler, $dbClient] = $this->prepareDependencies($generator);
-
-        $pathAlias->method('resolve')
-            ->with('@app/config/generator.php')
-            ->willReturn('/tmp/non-existing-generator-config.php');
+        $generator = new EntityGeneratorProbe();
+        [$filesystem, $namedLookup, $compiler, $dbClient] = $this->prepareDependencies($generator);
 
         $vendorTemplate = '@switon.orm-codegen.resources/templates/Entity.sword';
         $filesystem->method('exists')
@@ -140,32 +135,22 @@ class EntityGeneratorTemplatePathTest extends TestCase
     }
 
     /**
-     * @return array{FilesystemInterface, PathAliasInterface, NamedLookupInterface, TemplateCompilerInterface, ClientInterface}
+     * @return array{FilesystemInterface, NamedLookupInterface, TemplateCompilerInterface, ClientInterface, PathAliasInterface}
      */
-    protected function prepareDependencies(EntityGenerator $generator): array
+    protected function prepareDependencies(EntityGeneratorProbe $generator): array
     {
         $filesystem = $this->createMock(FilesystemInterface::class);
-        $pathAlias = $this->createMock(PathAliasInterface::class);
         $namedLookup = $this->createMock(NamedLookupInterface::class);
         $compiler = $this->createMock(TemplateCompilerInterface::class);
         $dbClient = $this->createMock(ClientInterface::class);
+        $pathAlias = $this->createMock(PathAliasInterface::class);
 
-        $this->inject($generator, 'filesystem', $filesystem);
-        $this->inject($generator, 'pathAlias', $pathAlias);
-        $this->inject($generator, 'namedLookup', $namedLookup);
-        $this->inject($generator, 'compiler', $compiler);
+        $generator->assignDependenciesForTest($filesystem, $pathAlias, $namedLookup, $compiler);
 
         $namedLookup->method('by')
             ->with(ClientInterface::class, 'default')
             ->willReturn($dbClient);
 
-        return [$filesystem, $pathAlias, $namedLookup, $compiler, $dbClient];
-    }
-
-    protected function inject(object $target, string $property, mixed $value): void
-    {
-        $r = new ReflectionClass($target);
-        $p = $r->getProperty($property);
-        $p->setValue($target, $value);
+        return [$filesystem, $namedLookup, $compiler, $dbClient, $pathAlias];
     }
 }

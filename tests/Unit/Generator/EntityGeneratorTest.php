@@ -7,21 +7,19 @@ namespace Switon\OrmCodegen\Tests\Unit\Generator;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use Switon\Core\FilesystemInterface;
-use Switon\Core\PathAliasInterface;
 use Switon\Db\Client;
 use Switon\Db\ClientInterface;
 use Switon\Di\NamedLookupInterface;
 use Switon\OrmCodegen\Generator\EntityGenerator;
 use Switon\OrmCodegen\Generator\TemplateCompilerInterface;
 use Switon\OrmCodegen\Tests\TestCase;
-use ReflectionClass;
+use RuntimeException;
 
 #[AllowMockObjectsWithoutExpectations]
 class EntityGeneratorTest extends TestCase
 {
     protected EntityGenerator $generator;
     protected MockObject|FilesystemInterface $mockFilesystem;
-    protected MockObject|PathAliasInterface $mockPathAlias;
     protected MockObject|NamedLookupInterface $mockNamedLookup;
     protected MockObject|TemplateCompilerInterface $mockCompiler;
     protected MockObject|ClientInterface $mockDbClient;
@@ -31,13 +29,11 @@ class EntityGeneratorTest extends TestCase
         parent::setUp();
 
         $this->mockFilesystem = $this->createMock(FilesystemInterface::class);
-        $this->mockPathAlias = $this->createMock(PathAliasInterface::class);
         $this->mockNamedLookup = $this->createMock(NamedLookupInterface::class);
         $this->mockCompiler = $this->createMock(TemplateCompilerInterface::class);
         $this->mockDbClient = $this->createMock(ClientInterface::class);
 
         $this->container->set(FilesystemInterface::class, $this->mockFilesystem);
-        $this->container->replace(PathAliasInterface::class, $this->mockPathAlias);
         $this->container->set(NamedLookupInterface::class, $this->mockNamedLookup);
         $this->container->set(TemplateCompilerInterface::class, $this->mockCompiler);
 
@@ -57,8 +53,11 @@ PHP;
                 return 'entity-template';
             });
 
-        $this->generator = new EntityGenerator();
-        $this->injector->inject($this->generator);
+        $this->generator = $this->make(EntityGenerator::class, [
+            'filesystem' => $this->mockFilesystem,
+            'namedLookup' => $this->mockNamedLookup,
+            'compiler' => $this->mockCompiler,
+        ]);
     }
 
     public function testGenerateCreatesEntityClass(): void
@@ -80,9 +79,6 @@ PHP;
 
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
-
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
 
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo "namespace {$namespace};"; ?>');
@@ -120,9 +116,6 @@ PHP;
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
 
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
-
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php foreach ($attributes as $attribute) { echo $attribute; } ?>');
 
@@ -154,9 +147,6 @@ PHP;
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
 
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
-
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php foreach ($attributes as $attribute) { echo $attribute; } ?>');
 
@@ -185,9 +175,6 @@ PHP;
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
 
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
-
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo $tableAttribute; ?>');
 
@@ -213,8 +200,6 @@ PHP;
             Client::METADATA_PRIMARY_KEY => ['id'],
         ]);
         $this->mockFilesystem->method('exists')->willReturn(false);
-        $this->mockPathAlias->method('resolve')->willReturn('/path/to/root');
-
         $code = $this->generator->generate('default', 'test', 'App\Entity', 'Test', '');
 
         $this->assertStringContainsString('int', $code);
@@ -231,8 +216,6 @@ PHP;
             Client::METADATA_PRIMARY_KEY => [],
         ]);
         $this->mockFilesystem->method('exists')->willReturn(false);
-        $this->mockPathAlias->method('resolve')->willReturn('/path/to/root');
-
         $code = $this->generator->generate('default', 'test', 'App\Entity', 'Test', '');
 
         $this->assertStringContainsString('string', $code);
@@ -249,8 +232,6 @@ PHP;
             Client::METADATA_PRIMARY_KEY => [],
         ]);
         $this->mockFilesystem->method('exists')->willReturn(false);
-        $this->mockPathAlias->method('resolve')->willReturn('/path/to/root');
-
         $code = $this->generator->generate('default', 'test', 'App\Entity', 'Test', '');
 
         $this->assertStringContainsString('string', $code);
@@ -267,8 +248,6 @@ PHP;
             Client::METADATA_PRIMARY_KEY => [],
         ]);
         $this->mockFilesystem->method('exists')->willReturn(false);
-        $this->mockPathAlias->method('resolve')->willReturn('/path/to/root');
-
         $code = $this->generator->generate('default', 'test', 'App\Entity', 'Test', '');
 
         $this->assertStringContainsString('floatfloat', $code);
@@ -285,8 +264,6 @@ PHP;
             Client::METADATA_PRIMARY_KEY => [],
         ]);
         $this->mockFilesystem->method('exists')->willReturn(false);
-        $this->mockPathAlias->method('resolve')->willReturn('/path/to/root');
-
         $code = $this->generator->generate('default', 'test', 'App\Entity', 'Test', '');
 
         $this->assertStringContainsString('mixed', $code);
@@ -311,9 +288,6 @@ PHP;
             ->willReturnCallback(static function (string $path): bool {
                 return $path === '@app/Entity/Entity.php';
             });
-
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
 
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo $baseClass; ?>');
@@ -351,9 +325,6 @@ PHP;
                 return $path === '@app/Entity/Entity.php';
             });
 
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
-
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo $baseClass; ?>');
 
@@ -389,9 +360,6 @@ PHP;
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
 
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
-
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo $baseClass; ?>');
 
@@ -424,9 +392,6 @@ PHP;
 
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
-
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
 
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo implode("|", $uses); ?>');
@@ -463,9 +428,6 @@ PHP;
 
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
-
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
 
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo implode("|", $uses); ?>');
@@ -509,9 +471,6 @@ PHP;
                 }
                 return [];
             });
-        $this->mockPathAlias->method('resolve')
-            ->willReturn('/path/to/root');
-
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo $constants; ?>');
 
@@ -529,8 +488,12 @@ PHP;
 
     public function testGenerateExtractsConstantsFromRuntimeEntityFilesToo(): void
     {
-        $generator = new EntityGenerator();
         $filesystem = new class () implements FilesystemInterface {
+            public function resolve(string $path): string
+            {
+                return $path;
+            }
+
             public function exists(string $path): bool
             {
                 return $path === '@app/templates/generator/Entity.sword'
@@ -565,6 +528,11 @@ PHP;
                 return '';
             }
 
+            public function lines(string $file): array
+            {
+                return [];
+            }
+
             public function write(string $file, string $data): void
             {
             }
@@ -573,11 +541,53 @@ PHP;
             {
             }
 
+            public function appendJsonl(string $file, mixed $value): void
+            {
+            }
+
+            public function writeJsonl(string $file, array $values): void
+            {
+            }
+
+            public function readJsonl(string $file): array
+            {
+                return [];
+            }
+
+            public function readJson(string $file): mixed
+            {
+                return null;
+            }
+
+            public function writeJson(string $file, mixed $value, int $options = JSON_PRETTY_PRINT): void
+            {
+            }
+
             public function move(string $src, string $dst, bool $overwrite = false): void
             {
             }
 
             public function isDir(string $dir): bool
+            {
+                return false;
+            }
+
+            public function isFile(string $file): bool
+            {
+                return false;
+            }
+
+            public function realpath(string $path): ?string
+            {
+                return null;
+            }
+
+            public function isReadable(string $path): bool
+            {
+                return false;
+            }
+
+            public function isLink(string $path): bool
             {
                 return false;
             }
@@ -622,11 +632,16 @@ PHP;
             public function chmod(string $file, int $mode): void
             {
             }
+
+            public function touch(string $file, ?int $time = null): void
+            {
+            }
         };
-        $this->inject($generator, 'filesystem', $filesystem);
-        $this->inject($generator, 'pathAlias', $this->mockPathAlias);
-        $this->inject($generator, 'namedLookup', $this->mockNamedLookup);
-        $this->inject($generator, 'compiler', $this->mockCompiler);
+        $generator = $this->make(EntityGenerator::class, [
+            'filesystem' => $filesystem,
+            'namedLookup' => $this->mockNamedLookup,
+            'compiler' => $this->mockCompiler,
+        ]);
 
         $this->mockNamedLookup->method('by')
             ->with(ClientInterface::class, 'default')
@@ -641,10 +656,6 @@ PHP;
 
         $this->mockFilesystem->method('exists')
             ->willReturn(false);
-
-        $this->mockPathAlias->method('resolve')
-            ->with('@app/config/generator.php')
-            ->willReturn('/tmp/no-generator-config.php');
 
         $this->mockCompiler->method('compileString')
             ->willReturn('<?php echo $constants; ?>');
@@ -710,10 +721,24 @@ PHP;
         $this->assertNull($spec['properties'][2]['maxLength']);
     }
 
-    protected function inject(object $target, string $property, mixed $value): void
+    public function testGenerateFallsBackWhenAppConfigLookupFails(): void
     {
-        $r = new ReflectionClass($target);
-        $p = $r->getProperty($property);
-        $p->setValue($target, $value);
+        $this->mockNamedLookup->method('by')->willReturn($this->mockDbClient);
+        $this->mockDbClient->method('getMetadata')->willReturn([
+            Client::METADATA_ATTRIBUTES => ['id' => 'INT'],
+            Client::METADATA_PRIMARY_KEY => ['id'],
+        ]);
+        $this->mockFilesystem->method('exists')->willReturnCallback(static function (string $path): bool {
+            if ($path === '@app/config/generator.php') {
+                throw new RuntimeException('alias missing');
+            }
+
+            return false;
+        });
+        $this->mockCompiler->method('compileString')->willReturn('<?php echo "namespace {$namespace};"; ?>');
+
+        $code = $this->generator->generate('default', 'test_table', 'App\Entity', 'TestEntity', '');
+
+        $this->assertStringContainsString('namespace App\Entity;', $code);
     }
 }
