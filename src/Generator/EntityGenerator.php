@@ -7,8 +7,8 @@ namespace Switon\OrmCodegen\Generator;
 use ParseError;
 use Switon\Core\Attribute\Autowired;
 use Switon\Core\FilesystemInterface;
-use Switon\Core\Naming;
 use Switon\Core\PathAliasInterface;
+use Switon\Core\Naming;
 use Switon\Db\Client;
 use Switon\Db\ClientInterface;
 use Switon\Di\NamedLookupInterface;
@@ -22,7 +22,6 @@ use Throwable;
 use function in_array;
 use function preg_match;
 use function preg_replace;
-use function str_starts_with;
 use function substr;
 
 /**
@@ -209,11 +208,8 @@ class EntityGenerator implements EntityGeneratorInterface
         // Get template path
         $templatePath = $this->getTemplatePath('Entity');
 
-        // Read template: alias path via filesystem abstraction, absolute path via native read.
-        $template = str_starts_with($templatePath, '@')
-            ? $this->filesystem->read($templatePath)
-            : file_get_contents($templatePath);
-        if (!is_string($template) || $template === '') {
+        $template = $this->filesystem->read($templatePath);
+        if ($template === '') {
             TemplateCompilationException::raise('Template file is empty: {templatePath}', [
                 'templatePath' => $templatePath,
             ]);
@@ -266,14 +262,16 @@ class EntityGenerator implements EntityGeneratorInterface
     protected function getTemplatePath(string $templateName): string
     {
         // Load config if exists
+        $configPath = '@app/config/generator.php';
         try {
-            $configPath = $this->pathAlias->resolve('@app/config/generator.php');
-        } catch (Throwable $e) {
-            $configPath = $this->pathAlias->resolve('@root') . '/config/generator.php';
+            $configExists = $this->filesystem->exists($configPath);
+        } catch (Throwable) {
+            $configPath = '@root/config/generator.php';
+            $configExists = $this->filesystem->exists($configPath);
         }
 
-        if ($this->filesystem->exists($configPath)) {
-            $config = require $configPath;
+        if ($configExists) {
+            $config = require $this->pathAlias->resolve($configPath);
             if (isset($config['generator']['templatePath'][$templateName])) {
                 $configuredPath = $config['generator']['templatePath'][$templateName];
                 if ($configuredPath && $this->filesystem->exists($configuredPath)) {

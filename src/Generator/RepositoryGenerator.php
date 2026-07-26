@@ -95,14 +95,16 @@ class RepositoryGenerator implements RepositoryGeneratorInterface
     protected function getTemplatePath(string $templateName): string
     {
         // Load config if exists
+        $configPath = '@app/config/generator.php';
         try {
-            $configPath = $this->pathAlias->resolve('@app/config/generator.php');
-        } catch (Throwable $e) {
-            $configPath = $this->pathAlias->resolve('@root') . '/config/generator.php';
+            $configExists = $this->filesystem->exists($configPath);
+        } catch (Throwable) {
+            $configPath = '@root/config/generator.php';
+            $configExists = $this->filesystem->exists($configPath);
         }
 
-        if ($this->filesystem->exists($configPath)) {
-            $config = require $configPath;
+        if ($configExists) {
+            $config = require $this->pathAlias->resolve($configPath);
             if (isset($config['generator']['templatePath'][$templateName])) {
                 $configuredPath = $config['generator']['templatePath'][$templateName];
                 if ($configuredPath && $this->filesystem->exists($configuredPath)) {
