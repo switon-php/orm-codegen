@@ -16,14 +16,13 @@ use Switon\Di\ContainerInterface;
 use Switon\Di\NamedLookupInterface;
 use Switon\Orm\NamingStrategy\CamelNamingStrategy;
 use Switon\Orm\NamingStrategy\DefaultNamingStrategy;
-use Switon\OrmCodegen\Command\EntityCommand;
+use Switon\OrmCodegen\Tests\Fixtures\EntityCommandProbe;
 use Switon\OrmCodegen\EntityScannerInterface;
 use Switon\OrmCodegen\Generator\EntityClassResolverInterface;
 use Switon\OrmCodegen\Generator\EntityGeneratorInterface;
 use Switon\OrmCodegen\Generator\FilePathGeneratorInterface;
 use Switon\OrmCodegen\Generator\OutputDirectoryResolverInterface;
 use Switon\OrmCodegen\Generator\RepositoryGeneratorInterface;
-use ReflectionClass;
 use RuntimeException;
 
 use function json_decode;
@@ -31,7 +30,7 @@ use function json_decode;
 #[AllowMockObjectsWithoutExpectations]
 class EntityCommandTest extends TestCase
 {
-    protected EntityCommand $command;
+    protected EntityCommandProbe $command;
     protected ConsoleInterface&MockObject $console;
     protected EntityScannerInterface&MockObject $entityScanner;
     protected TableScannerInterface&MockObject $tableScanner;
@@ -49,7 +48,7 @@ class EntityCommandTest extends TestCase
     {
         parent::setUp();
 
-        $this->command = new EntityCommand();
+        $this->command = new EntityCommandProbe();
         $this->console = $this->createMock(ConsoleInterface::class);
         $this->entityScanner = $this->createMock(EntityScannerInterface::class);
         $this->tableScanner = $this->createMock(TableScannerInterface::class);
@@ -63,18 +62,20 @@ class EntityCommandTest extends TestCase
         $this->filePathGenerator = $this->createMock(FilePathGeneratorInterface::class);
         $this->entityClassResolver = $this->createMock(EntityClassResolverInterface::class);
 
-        $this->injectProperty($this->command, 'console', $this->console);
-        $this->injectProperty($this->command, 'entityScanner', $this->entityScanner);
-        $this->injectProperty($this->command, 'tableScanner', $this->tableScanner);
-        $this->injectProperty($this->command, 'container', $this->container);
-        $this->injectProperty($this->command, 'filesystem', $this->filesystem);
-        $this->injectProperty($this->command, 'pathAlias', $this->pathAlias);
-        $this->injectProperty($this->command, 'namedLookup', $this->namedLookup);
-        $this->injectProperty($this->command, 'outputDirectoryResolver', $this->outputDirectoryResolver);
-        $this->injectProperty($this->command, 'entityGenerator', $this->entityGenerator);
-        $this->injectProperty($this->command, 'repositoryGenerator', $this->repositoryGenerator);
-        $this->injectProperty($this->command, 'filePathGenerator', $this->filePathGenerator);
-        $this->injectProperty($this->command, 'entityClassResolver', $this->entityClassResolver);
+        $this->command->assignDependenciesForTest(
+            $this->console,
+            $this->entityScanner,
+            $this->tableScanner,
+            $this->container,
+            $this->filesystem,
+            $this->pathAlias,
+            $this->namedLookup,
+            $this->outputDirectoryResolver,
+            $this->entityGenerator,
+            $this->repositoryGenerator,
+            $this->filePathGenerator,
+            $this->entityClassResolver,
+        );
     }
 
     public function testListActionOutputsEmptyEntitiesJsonWhenNoMappingsFound(): void
@@ -146,20 +147,20 @@ class EntityCommandTest extends TestCase
 
     public function testFilterTablesBySpecSupportsCommaList(): void
     {
-        $result = $this->invokeProtected('filterTablesBySpec', [
+        $result = $this->command->filterTablesBySpecForTest(
             ['users', 'orders', 'posts'],
             'users, posts',
-        ]);
+        );
 
         $this->assertSame(['users', 'posts'], $result);
     }
 
     public function testFilterTablesBySpecAppendsWildcardWhenMissing(): void
     {
-        $result = $this->invokeProtected('filterTablesBySpec', [
+        $result = $this->command->filterTablesBySpecForTest(
             ['rbac_users', 'rbac_roles', 'audit_logs'],
             'rbac',
-        ]);
+        );
 
         $this->assertSame(['rbac_users', 'rbac_roles'], $result);
     }
@@ -171,7 +172,7 @@ class EntityCommandTest extends TestCase
             ->with('default')
             ->willReturn(['default' => ['users', 'orders']]);
 
-        $result = $this->invokeProtected('getTablesToProcess', ['users', 'default']);
+        $result = $this->command->getTablesToProcessForTest('users', 'default');
 
         $this->assertSame(['users'], $result);
     }
@@ -186,7 +187,7 @@ class EntityCommandTest extends TestCase
         $this->expectException(\Switon\Core\Exception::class);
         $this->expectExceptionMessage('Table "orders" not found in connection "default"');
 
-        $this->invokeProtected('getTablesToProcess', ['orders', 'default']);
+        $this->command->getTablesToProcessForTest('orders', 'default');
     }
 
     public function testGetNamingStrategyInstanceReturnsCamelStrategy(): void
@@ -198,7 +199,7 @@ class EntityCommandTest extends TestCase
             ->with(CamelNamingStrategy::class)
             ->willReturn($camel);
 
-        $result = $this->invokeProtected('getNamingStrategyInstance', ['camel']);
+        $result = $this->command->getNamingStrategyInstanceForTest('camel');
 
         $this->assertSame($camel, $result);
     }
@@ -212,7 +213,7 @@ class EntityCommandTest extends TestCase
             ->with(DefaultNamingStrategy::class)
             ->willReturn($default);
 
-        $result = $this->invokeProtected('getNamingStrategyInstance', ['']);
+        $result = $this->command->getNamingStrategyInstanceForTest('');
 
         $this->assertSame($default, $result);
     }
@@ -226,7 +227,7 @@ class EntityCommandTest extends TestCase
 
         $this->filesystem->expects($this->never())->method('write');
 
-        $this->invokeProtected('updateEntitiesDoc', ['users', 'App\\Entity\\User']);
+        $this->command->updateEntitiesDocForTest('users', 'App\\Entity\\User');
     }
 
     public function testUpdateEntitiesDocCreatesFileWhenMissing(): void
@@ -259,7 +260,7 @@ class EntityCommandTest extends TestCase
                 })
             );
 
-        $this->invokeProtected('updateEntitiesDoc', ['users', 'App\\Entity\\User']);
+        $this->command->updateEntitiesDocForTest('users', 'App\\Entity\\User');
     }
 
     public function testSpecActionThrowsForUnknownConnection(): void
@@ -569,7 +570,7 @@ class EntityCommandTest extends TestCase
         $this->filesystem->expects($this->never())
             ->method('write');
 
-        $this->invokeProtected('updateEntitiesDoc', ['users', 'App\\Entity\\User']);
+        $this->command->updateEntitiesDocForTest('users', 'App\\Entity\\User');
     }
 
     public function testUpdateEntitiesDocInsertsRowAfterFirstMatchingTableRow(): void
@@ -600,7 +601,7 @@ class EntityCommandTest extends TestCase
                 })
             );
 
-        $this->invokeProtected('updateEntitiesDoc', ['users', 'App\\Entity\\User']);
+        $this->command->updateEntitiesDocForTest('users', 'App\\Entity\\User');
     }
 
     public function testUpdateEntitiesDocAppendsRowWhenNoTableRowPatternFound(): void
@@ -631,21 +632,7 @@ class EntityCommandTest extends TestCase
                 })
             );
 
-        $this->invokeProtected('updateEntitiesDoc', ['users', 'App\\Entity\\User']);
+        $this->command->updateEntitiesDocForTest('users', 'App\\Entity\\User');
     }
 
-    private function injectProperty(object $object, string $property, mixed $value): void
-    {
-        $reflection = new ReflectionClass($object);
-        $prop = $reflection->getProperty($property);
-        $prop->setValue($object, $value);
-    }
-
-    private function invokeProtected(string $method, array $args = []): mixed
-    {
-        $reflection = new ReflectionClass($this->command);
-        $target = $reflection->getMethod($method);
-
-        return $target->invokeArgs($this->command, $args);
-    }
 }
