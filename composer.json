@@ -19,7 +19,7 @@
     "support": {
         "source": "https://github.com/switon-php/orm-codegen",
         "issues": "https://github.com/switon-php/orm-codegen/issues",
-        "docs": "https://docs.switon.dev/latest/orm-codegen"
+        "docs": "https://github.com/switon-php/orm-codegen/blob/main/docs/README.md"
     },
     "require": {
         "php": ">=8.3",

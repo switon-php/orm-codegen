@@ -24,7 +24,7 @@ composer require --dev switon/orm-codegen
 bash bin/console entity:make --connection=default
 ```
 
-Docs: https://docs.switon.dev/latest/orm-codegen
+Docs: https://github.com/switon-php/orm-codegen/blob/main/docs/README.md
 
 ## License
 

@@ -103,4 +103,4 @@ Only add paths that actually contain ORM entity classes.
 
 - **To read common questions:** [FAQ](faq.md#orm-codegen-faq)
 - **To see why the package prefers inspect-first generation:** [Design Rationale](design.md#design-rationale)
-- **To work with the runtime ORM contract:** [ORM Package](../../orm/docs/README.md)
+- **To work with the runtime ORM contract:** [ORM Package](https://github.com/switon-php/orm/blob/main/docs/README.md)
